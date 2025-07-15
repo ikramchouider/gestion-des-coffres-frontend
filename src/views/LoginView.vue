@@ -91,13 +91,21 @@
                 Forgot password?
               </a>
             </div>
+
+                <!--Error message display -->
+                  <div v-if="errorMessage" class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {{ errorMessage }}
+                  </div>
             
             <button
               type="submit"
-              class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-bmue-500 focus:ring-offset-2 transition-colors duration-200"
+              class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 disabled:opacity-75"
+              :disabled="isLoading"
             >
-              Connect
+              <span v-if="!isLoading">Connect</span>
+              <span v-else>Creating Account...</span>
             </button>
+            
           </form>
           
           <div class="mt-6 text-center">
@@ -120,15 +128,62 @@
 <script setup>
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+
 const router = useRouter()
+const authStore = useAuthStore()
+
 const email = ref('')
 const password = ref('')
+const isLoading = ref(false)
+const errorMessage = ref('')
+const rememberMe = ref(false)
 
-const handleLogin = () => {
-  // Handle login logic here
-  console.log('Login attempt:', { email: email.value, password: password.value })
+const handleLogin = async () => {
+  errorMessage.value = ''
   
-  // Redirect to dashboard after successful login
-  router.push('/Dashbord')
+  if (!email.value || !password.value) {
+    errorMessage.value = 'Please fill in all fields'
+    return
+  }
+
+  isLoading.value = true
+
+  try {
+    const response = await fetch('http://localhost:8000/api/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.value, password: password.value })
+    })
+
+    const data = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Login failed')
+    }
+
+    // Handle different response formats
+    const userData = data.user || data // Try both common formats
+    const authToken = data.token || data.access_token
+    
+    if (!userData || !authToken) {
+      throw new Error('Invalid API response format')
+    }
+
+    authStore.login({
+      id: userData.id,
+      email: userData.email,
+      username: userData.username || email.value.split('@')[0],
+      roles: userData.roles || []
+    }, authToken)
+    
+    router.push('/Dashbord')
+    
+  } catch (error) {
+    errorMessage.value = error.message
+    console.error('Login error:', error, 'Full response:', data)
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>

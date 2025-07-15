@@ -60,8 +60,10 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const props = defineProps({
   searchQuery: {
@@ -76,86 +78,37 @@ const props = defineProps({
 
 const boxes = ref([])
 const loading = ref(false)
-const deletingIds = ref([])
 const regeneratingIds = ref([])
 
 const fetchBoxes = async () => {
   loading.value = true
   try {
-    // Mock data for frontend testing
-    const mockBoxes = [
-      {
-        id: 1,
-        name: 'Box Alpha',
-        creator: 'Alice Johnson',
-        code: 'BOX001'
-      },
-      {
-        id: 2,
-        name: 'Box Beta',
-        creator: 'Bob Smith',
-        code: 'BOX002'
-      },
-      {
-        id: 3,
-        name: 'Box Gamma',
-        creator: 'Charlie Brown',
-        code: 'BOX003'
-      },
-      {
-        id: 4,
-        name: 'Box Delta',
-        creator: 'Alice Johnson',
-        code: 'BOX004'
-      },
-      {
-        id: 5,
-        name: 'Box Echo',
-        creator: 'Diana Prince',
-        code: 'BOX005'
-      }
-    ]
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800))
-    
-    // Filter mock data based on search
-    let filteredBoxes = mockBoxes
-    
-    if (props.searchQuery) {
-      const query = props.searchQuery.toLowerCase()
-      filteredBoxes = mockBoxes.filter(box => {
-        if (props.filterType === 'code') {
-          return box.code.toLowerCase().includes(query)
-        } else {
-          return box.creator.toLowerCase().includes(query)
-        }
-      })
-    }
-    
-    boxes.value = filteredBoxes
-    
-    /*
     const params = new URLSearchParams()
-    
+
     if (props.searchQuery) {
       params.append('search', props.searchQuery)
       params.append('searchType', props.filterType)
     }
     
-    const response = await fetch(`/api/boxes?${params}`, {
+    const response = await fetch(`http://localhost:8000/api/coffres?${params}`, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Content-Type': 'application/json'
       }
     })
     
     if (response.ok) {
       const data = await response.json()
-      boxes.value = data.boxes || data
+      boxes.value = data.coffres.map(box => ({
+        id: box.id,
+        name: box.name,
+        creator: box.owner,
+        code: box.current_code,
+        createdAt: box.created_at
+      }))
     } else {
       console.error('Error fetching boxes:', response.statusText)
     }
-    */
   } catch (error) {
     console.error('Error fetching boxes:', error)
   } finally {
@@ -164,57 +117,50 @@ const fetchBoxes = async () => {
 }
 
 const regenerateCode = async (boxId) => {
-  if (!confirm('Are you sure you want to regenerate the code for this box?')) {
+  if (!authStore.user || !authStore.token) {
+    alert('Session expired. Please login again.')
+    await authStore.logout()
+    router.push('/login')
     return
   }
-  
+
   regeneratingIds.value.push(boxId)
   
   try {
-    // Mock regeneration for frontend testing
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Generate new code for the box
-    const newCode = `BOX${Math.floor(Math.random() * 9000) + 1000}`
-    
-    // Update the box with new code
-    const boxIndex = boxes.value.findIndex(box => box.id === boxId)
-    if (boxIndex !== -1) {
-      boxes.value[boxIndex].code = newCode
-    }
-    
-    alert(`New code generated: ${newCode}`)
-    
-    /*
-    const response = await fetch(`/api/boxes/${boxId}/regenerate`, {
+    const response = await fetch(`http://localhost:8000/api/coffres/${boxId}/regenerate-code`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        coffreId: boxId.toString(),
+        username: authStore.user.email
+      })
     })
+
+    const data = await response.json()
     
-    if (response.ok) {
-      const data = await response.json()
-      const boxIndex = boxes.value.findIndex(box => box.id === boxId)
-      if (boxIndex !== -1) {
-        boxes.value[boxIndex].code = data.newCode
-      }
-      alert(`New code generated: ${data.newCode}`)
-    } else {
-      console.error('Error regenerating code:', response.statusText)
-      alert('Error regenerating code. Please try again.')
+    if (!response.ok) {
+      throw new Error(data.message || `HTTP error! status: ${response.status}`)
     }
-    */
+
+    // Success case
+    const boxIndex = boxes.value.findIndex(box => box.id === boxId)
+    if (boxIndex !== -1) {
+      boxes.value[boxIndex].code = data.new_secret_code
+    }
+    alert(`Success: ${data.new_secret_code}`)
+    
   } catch (error) {
-    console.error('Error regenerating code:', error)
-    alert('Error regenerating code. Please try again.')
+    console.error('Full error:', error)
+    alert(`Error: ${error.message}\nCheck console for details.`)
   } finally {
     regeneratingIds.value = regeneratingIds.value.filter(id => id !== boxId)
   }
 }
 
 const seeHistory = (boxId) => {
-  router.push(`/history/${boxId}`)
+  router.push(`/History/:id`)
 }
 
 // Watch for prop changes and refetch

@@ -110,12 +110,19 @@
                 <a href="#" class="text-blue-600 hover:text-blue-700">Privacy Policy</a>
               </label>
             </div>
+
+              <!--Error message display -->
+                  <div v-if="errorMessage" class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {{ errorMessage }}
+                  </div>
             
             <button
               type="submit"
-              class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+              class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 disabled:opacity-75"
+              :disabled="isLoading"
             >
-              Get Started
+              <span v-if="!isLoading">Get Started</span>
+              <span v-else>Creating Account...</span>
             </button>
           </form>
           
@@ -139,22 +146,64 @@
 <script setup>
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import signup from '../assets/img/signup.png' ;
+import { useAuthStore } from '../stores/auth' // Update path if needed
 
 const router = useRouter()
+const authStore = useAuthStore()
+
 const username = ref('')
 const email = ref('')
 const password = ref('')
+const isLoading = ref(false)
+const errorMessage = ref('')
 
-const handleSignup = () => {
-  // Handle signup logic here
-  console.log('Signup attempt:', { 
-    username: username.value,
-    email: email.value, 
-    password: password.value 
-  })
+const handleSignup = async () => {
+  // Clear previous errors
+  errorMessage.value = ''
   
-  // Redirect to dashboard after successful signup
-  router.push('/Dashbord')
+  // Basic validation
+  if (!username.value || !email.value || !password.value) {
+    errorMessage.value = 'Please fill in all fields'
+    return
+  }
+
+  isLoading.value = true
+
+  try {
+    const response = await fetch('http://localhost:8000/api/user/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        username: username.value,
+        email: email.value,
+        password: password.value
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || 'Registration failed. Please try again.')
+    }
+
+    const data = await response.json()
+    
+    // Store user data and token using Pinia
+    authStore.login({
+      id: data.id,
+      email: data.email,
+      username: username.value,
+      roles: data.roles || []
+    }, data.token || 'your-token-here')
+    
+    // Redirect to dashboard
+    router.push('/Dashbord')
+  } catch (error) {
+    errorMessage.value = error.message
+    console.error('Signup error:', error)
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
