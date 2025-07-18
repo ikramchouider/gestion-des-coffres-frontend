@@ -103,7 +103,7 @@
               :disabled="isLoading"
             >
               <span v-if="!isLoading">Connect</span>
-              <span v-else>Creating Account...</span>
+              <span v-else>Please Wait...</span>
             </button>
             
           </form>
@@ -176,7 +176,7 @@ const handleLogin = async () => {
       username: userData.username || email.value.split('@')[0],
       roles: userData.roles || []
     }, authToken)
-    
+    console.log("auther data:",authToken)
     router.push('/Dashbord')
     
   } catch (error) {

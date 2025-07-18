@@ -80,6 +80,17 @@ const boxes = ref([])
 const loading = ref(false)
 const regeneratingIds = ref([])
 
+// Helper function to check authentication
+const checkAuth = () => {
+  if (!authStore.user || !authStore.token) {
+    alert('Session expired. Please login again.')
+    authStore.logout()
+    router.push('/login')
+    return false
+  }
+  return true
+}
+
 const fetchBoxes = async () => {
   loading.value = true
   try {
@@ -117,15 +128,10 @@ const fetchBoxes = async () => {
 }
 
 const regenerateCode = async (boxId) => {
-  if (!authStore.user || !authStore.token) {
-    alert('Session expired. Please login again.')
-    await authStore.logout()
-    router.push('/login')
-    return
-  }
-
-  regeneratingIds.value.push(boxId)
   
+  regeneratingIds.value.push(boxId)
+
+  console.log('Regenerating code for box:', boxId)
   try {
     const response = await fetch(`http://localhost:8000/api/coffres/${boxId}/regenerate-code`, {
       method: 'POST',
@@ -134,22 +140,27 @@ const regenerateCode = async (boxId) => {
       },
       body: JSON.stringify({
         coffreId: boxId.toString(),
-        username: authStore.user.email
       })
     })
 
     const data = await response.json()
+    console.log('response', data)
     
     if (!response.ok) {
-      throw new Error(data.message || `HTTP error! status: ${response.status}`)
+      if (response.status === 401) {
+        await authStore.logout()
+        router.push('/login')
+        return
+      }
+      throw new Error(data.message || data.detail || `HTTP error! status: ${response.status}`)
     }
 
     // Success case
     const boxIndex = boxes.value.findIndex(box => box.id === boxId)
     if (boxIndex !== -1) {
-      boxes.value[boxIndex].code = data.new_secret_code
+      boxes.value[boxIndex].code = data.new_secret_code 
     }
-    alert(`Success: ${data.new_secret_code}`)
+    alert(`Success: ${data.new_secret_code }`)
     
   } catch (error) {
     console.error('Full error:', error)
@@ -160,7 +171,7 @@ const regenerateCode = async (boxId) => {
 }
 
 const seeHistory = (boxId) => {
-  router.push(`/History/:id`)
+  router.push(`/History/${boxId}`)
 }
 
 // Watch for prop changes and refetch

@@ -18,7 +18,7 @@
         </button>
       </div>
 
-      <!-- Form Contaner -->
+      <!-- Form Container -->
       <div class="bg-white shadow-sm rounded-lg p-6">
         <h1 class="text-2xl font-bold text-gray-900 mb-6">Add New Box</h1>
         
@@ -32,6 +32,16 @@
               <p class="text-green-800 font-medium">Box created successfully!</p>
               <p class="text-green-700 text-sm mt-1">Your box code is: <span class="font-mono font-bold">{{ generatedCode }}</span></p>
             </div>
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="errors.general" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div class="flex items-center">
+            <svg class="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+            </svg>
+            <p class="text-red-800 font-medium">{{ errors.general }}</p>
           </div>
         </div>
 
@@ -101,6 +111,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Navbar from '@/components/Navbar.vue'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 
@@ -109,74 +120,64 @@ const loading = ref(false)
 const showSuccess = ref(false)
 const generatedCode = ref('')
 const errors = ref({})
+const authStore = useAuthStore()
 
 const goBack = () => {
   router.push('/Dashbord')
 }
-
-const generateRandomCode = () => {
-  const prefix = 'BOX'
-  const randomNum = Math.floor(Math.random() * 9000) + 1000
-  return `${prefix}${randomNum}`
+const checkAuth = () => {
+  if (!authStore.user || !authStore.token) {
+    alert('Session expired. Please login again.')
+    authStore.logout()
+    router.push('/login')
+    return false
+  }
+  return true
 }
-
-
 const submitForm = async () => {
+  if (!checkAuth()) return
+
+
   loading.value = true
+  errors.value = {} // Clear previous errors
   
   try {
-    // Mock API call for frontend testing
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Generate mock response
-    const mockResponse = {
-      id: Date.now(),
-      name: boxName.value.trim(),
-      code: generateRandomCode(),
-      creator: 'Ikram CHOUIDER', // This would come from the backend
-      createdAt: new Date().toISOString()
-    }
-    
-    generatedCode.value = mockResponse.code
-    showSuccess.value = true
-    
-    // Reset form
-    boxName.value = ''
-    
-    // Hide success message after 5 seconds
-    setTimeout(() => {
-      showSuccess.value = false
-    }, 5000)
-    
-    /*
-    const response = await fetch('/api/boxes', {
+    const response = await fetch('http://localhost:8000/api/coffres/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
       body: JSON.stringify({
         name: boxName.value.trim()
       })
     })
-    
+    console.log(response)
     if (response.ok) {
       const data = await response.json()
-      generatedCode.value = data.code
+      generatedCode.value = data.secret_code
       showSuccess.value = true
-      boxName.value = ''
+      boxName.value = '' // Reset form
       
+      // Hide success message after 5 seconds
       setTimeout(() => {
         showSuccess.value = false
       }, 5000)
     } else {
-      const errorData = await response.json()
-      errors.value = errorData.errors || { general: 'Something went wrong' }
+      // Handle different error status codes
+      if (response.status === 400) {
+        const errorData = await response.json()
+        errors.value = errorData.errors || { general: 'Invalid data provided' }
+      } else if (response.status === 401) {
+        errors.value.general = 'Authentication required'
+      } else if (response.status === 500) {
+        errors.value.general = 'Server error. Please try again later.'
+      } else {
+        errors.value.general = 'Something went wrong. Please try again.'
+      }
     }
-    */
   } catch (error) {
     console.error('Error creating box:', error)
-    errors.value.general = 'Network error. Please try again.'
+    errors.value.general = 'Network error. Please check your connection and try again.'
   } finally {
     loading.value = false
   }
