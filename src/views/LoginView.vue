@@ -163,7 +163,7 @@ const handleLogin = async () => {
     }
 
     // Handle different response formats
-    const userData = data.user || data // Try both common formats
+    const userData = data.user || data 
     const authToken = data.token || data.access_token
     
     if (!userData || !authToken) {

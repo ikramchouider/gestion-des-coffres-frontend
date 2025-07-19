@@ -39,14 +39,14 @@
           <div class="flex space-x-2 ml-4">
             <button 
               @click="seeHistory(box.id)"
-              class="px-4 py-2 text-blue-700 text-white rounded-lg hover:text-gray-600 transition-colors duration-200"
+              class="px-4 py-2 text-blue-700  rounded-lg hover:text-gray-600 transition-colors duration-200"
             >
               See History
             </button>
             <button 
               @click="regenerateCode(box.id)"
               :disabled="regeneratingIds.includes(box.id)"
-              class="px-4 py-2 text-gray-600 text-white rounded-lg hover:text-orange-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="px-4 py-2 text-gray-600  rounded-lg hover:text-orange-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {{ regeneratingIds.includes(box.id) ? 'Regenerating...' : 'Regenerate Code' }}
             </button>
@@ -82,7 +82,7 @@ const regeneratingIds = ref([])
 
 // Helper function to check authentication
 const checkAuth = () => {
-  if (!authStore.user || !authStore.token) {
+  if (!authStore.token) {
     alert('Session expired. Please login again.')
     authStore.logout()
     router.push('/login')
@@ -128,7 +128,11 @@ const fetchBoxes = async () => {
 }
 
 const regenerateCode = async (boxId) => {
-  
+   if (!checkAuth()) {
+        router.push('/login')
+        return
+   }
+
   regeneratingIds.value.push(boxId)
 
   console.log('Regenerating code for box:', boxId)
@@ -136,7 +140,8 @@ const regenerateCode = async (boxId) => {
     const response = await fetch(`http://localhost:8000/api/coffres/${boxId}/regenerate-code`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json' ,
+        'Authorization': `Bearer ${authStore.token}` 
       },
       body: JSON.stringify({
         coffreId: boxId.toString(),

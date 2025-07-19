@@ -110,7 +110,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import Navbar from '@/components/Navbar.vue'
+import Navbar from '@/components/Nav.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
@@ -126,7 +126,7 @@ const goBack = () => {
   router.push('/Dashbord')
 }
 const checkAuth = () => {
-  if (!authStore.user || !authStore.token) {
+  if (!authStore.token) {
     alert('Session expired. Please login again.')
     authStore.logout()
     router.push('/login')
@@ -135,8 +135,12 @@ const checkAuth = () => {
   return true
 }
 const submitForm = async () => {
-  if (!checkAuth()) return
 
+  
+  if (!checkAuth()) {
+        router.push('/login')
+        return
+   }
 
   loading.value = true
   errors.value = {} // Clear previous errors
@@ -146,6 +150,7 @@ const submitForm = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authStore.token}`,
       },
       body: JSON.stringify({
         name: boxName.value.trim()

@@ -22,40 +22,18 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
+const router = useRouter()
+const authStore = useAuthStore()
 const username = ref('')
 
-const fetchUserData = async () => {
-  try {
-    const mockUserData = {
-      username: 'Ikram CHOUIDER',
-      name: 'Ikram CHOUIDER',
-      email: 'Ikram.CHOUIDER@example.com'
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 500))  
-    username.value = mockUserData.username || mockUserData.name
-    
-    /* 
-    const response = await fetch('/api/user/profile', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    })
-    
-    if (response.ok) {
-      const userData = await response.json()
-      username.value = userData.username || userData.name
-    }
-    */
-  } catch (error) {
-    console.error('Error fetching user data:', error)
-    // Fallback for testing
-    username.value = 'Test User'
-  }
-}
-
 onMounted(() => {
-  fetchUserData()
+  if (authStore.user) {
+    username.value = authStore.user.username || authStore.user.email.split('@')[0]
+  } else {
+    router.push('/login')
+  }
 })
 </script>
